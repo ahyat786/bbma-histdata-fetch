@@ -151,17 +151,29 @@ def merge_stats(total, part):
 
 
 def dedupe(rows):
+    """Deduplicate by timestamp, merging same-bucket fragments across month ZIPs.
+
+    HistData months are EST-fixed: after +5 h UTC conversion a month starts at
+    05:00 UTC and ends at 04:59:59 UTC on the 1st of the next month. An H4
+    bucket at 04:00 UTC therefore appears in two consecutive monthly parts.
+    Keep the first Open, maximum High, minimum Low and last Close so the
+    canonical candles match a continuous (non-reset) tick aggregation.
+    """
     out = {}
     for tf in TFS:
         out[tf] = {}
         for side in SIDES:
-            seen, clean = set(), []
+            merged = {}
             for r in rows[tf][side]:
-                if r[0] not in seen:
-                    seen.add(r[0])
-                    clean.append(r)
-            clean.sort(key=lambda r: r[0])
-            out[tf][side] = clean
+                ts = r[0]
+                if ts not in merged:
+                    merged[ts] = list(r)
+                else:
+                    cur = merged[ts]
+                    cur[2] = max(cur[2], r[2])
+                    cur[3] = min(cur[3], r[3])
+                    cur[4] = r[4]
+            out[tf][side] = [merged[k] for k in sorted(merged)]
     return out
 
 
