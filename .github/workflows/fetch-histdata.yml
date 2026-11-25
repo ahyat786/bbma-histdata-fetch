@@ -67,10 +67,14 @@ jobs:
         run: |
           git config user.name "bbma-histdata-bot"
           git config user.email "bbma-histdata-bot@users.noreply.github.com"
-          git add 'data/histdata_ticks/*.json'
+          # Unquoted globs: only canonical top-level JSON + monthly cache parts, no other files.
+          git add data/histdata_ticks/*.json data/histdata_ticks/parts/*/*.json
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else
             git commit -m "data: HistData tick EURUSD/GBPUSD/AUDUSD/XAUUSD 2021-${{ steps.clock.outputs.year }}-${{ steps.clock.outputs.month }}"
-            git push
           fi
+          # Another workflow/doc commit may land while this 90-minute fetch runs.
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
