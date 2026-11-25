@@ -34,7 +34,13 @@ Catatan timezone: HistData memakai EST tetap tanpa DST. Fetcher menambah +5 jam 
 
 - Per-month parts disimpan di Actions cache, jadi run berikutnya hanya mengambil bulan baru.
 - Jika HistData belum merilis bulan berjalan, fetcher tetap menulis data sampai bulan terakhir yang tersedia dan mencatat `last_utc` di summary.
-- Data mentah ZIP tidak disimpan; stream dan langsung diagregasi ke H4/H1/H4 Bid/Ask.
+- Data mentah ZIP tidak disimpan; stream dan langsung diagregasi ke H4/H1/M15 Bid/Ask/Mid.
+- Fragmen H4 yang tumpang tindih antar bulan EST digabung (open pertama, high maksimum, low minimum, close terakhir).
+- Per-month parts juga disimpan di repo private supaya run berikutnya cepat meski Actions cache kosong.
+
+## Status
+
+Run terakhir `45574137812` **success** (2026-11-25): 71 bulan per simbol, 755.721.375 tick, tanpa kegagalan. Data kanonik ada di `ahyat786/bbma-ea-analysis` commit `3db2e1158634`.
 
 ## Sumber
 
