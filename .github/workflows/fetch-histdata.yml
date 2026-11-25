@@ -1,0 +1,76 @@
+name: Fetch HistData 2021 → now
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Minggu 03:17 UTC — mengambil bulan baru bila tersedia.
+    - cron: '17 3 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout public fetcher
+        uses: actions/checkout@v4
+        with:
+          path: fetcher
+
+      - name: Checkout private BBMA repo
+        uses: actions/checkout@v4
+        with:
+          repository: ahyat786/bbma-ea-analysis
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: private
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache monthly parts
+        uses: actions/cache@v4
+        with:
+          path: private/data/histdata_ticks/parts
+          key: histdata-parts-${{ runner.os }}-v1
+          restore-keys: histdata-parts-${{ runner.os }}-
+
+      - name: Resolve end year/month (UTC)
+        id: clock
+        run: |
+          echo "year=$(date -u +%Y)" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%-m)" >> "$GITHUB_OUTPUT"
+
+      - name: Download and aggregate HistData ticks
+        run: |
+          python fetcher/fetch_histdata.py \
+            --out private/data/histdata_ticks \
+            --pairs EURUSD,GBPUSD,AUDUSD,XAUUSD \
+            --start-year 2021 \
+            --end-year ${{ steps.clock.outputs.year }} \
+            --end-month ${{ steps.clock.outputs.month }} \
+            --delay 0.2
+
+      - name: Upload coverage summaries as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: histdata-summary
+          path: private/data/histdata_ticks/*summary.json
+
+      - name: Commit data to private repo
+        working-directory: private
+        run: |
+          git config user.name "bbma-histdata-bot"
+          git config user.email "bbma-histdata-bot@users.noreply.github.com"
+          git add 'data/histdata_ticks/*.json'
+          if git diff --cached --quiet; then
+            echo "No data changes to commit"
+          else
+            git commit -m "data: HistData tick EURUSD/GBPUSD/AUDUSD/XAUUSD 2021-${{ steps.clock.outputs.year }}-${{ steps.clock.outputs.month }}"
+            git push
+          fi
